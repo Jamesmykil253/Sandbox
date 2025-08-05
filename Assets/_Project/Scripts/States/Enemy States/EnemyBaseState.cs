@@ -1,9 +1,17 @@
-// EnemyBaseState.cs (v1.1 - Updated EnemyCombatState with attackTimer reset)
+// EnemyBaseState.cs (v1.1)
 using UnityEngine;
 
 namespace Platformer
 {
-    public abstract class EnemyBaseState : IState { public virtual void OnEnter() { } public virtual void Update() { } public virtual void FixedUpdate() { } public virtual void OnExit() { } protected readonly EnemyAIController enemy; protected EnemyBaseState(EnemyAIController enemy) { this.enemy = enemy; } }
+    public abstract class EnemyBaseState : IState 
+    { 
+        protected readonly EnemyAIController enemy; 
+        protected EnemyBaseState(EnemyAIController enemy) { this.enemy = enemy; } 
+        public virtual void OnEnter() { } 
+        public virtual void Update() { } 
+        public virtual void FixedUpdate() { } 
+        public virtual void OnExit() { } 
+    }
     
     public class EnemyIdleState : EnemyBaseState 
     { 
@@ -16,10 +24,14 @@ namespace Platformer
         } 
     }
 
-    // --- NEW COMBAT STATE ---
+    // **FIX**: New combined combat state.
+    // **WHY**: This simplifies the AI's logic dramatically. Instead of needing to transition
+    // between a "Chase" state and an "Attack" state, this single "Combat" state handles both
+    // responsibilities. It always tries to move toward the player while simultaneously checking
+    // if it's able to attack. This is more efficient and less prone to getting stuck.
     public class EnemyCombatState : EnemyBaseState
     {
-        private float _attackCooldown = 1.5f;
+        private float _attackCooldown;
         private float _attackTimer;
 
         public EnemyCombatState(EnemyAIController enemy) : base(enemy) { }
@@ -27,27 +39,23 @@ namespace Platformer
         public override void OnEnter()
         {
             enemy.SetStateColor(enemy.combatColor);
+            _attackCooldown = 1f / enemy.MyStats.baseStats.AttackSpeed;
             if (enemy.Agent.isOnNavMesh)
             {
                 enemy.Agent.isStopped = false;
-                // We don't use stopping distance; we control attacks manually.
                 enemy.Agent.stoppingDistance = 0; 
             }
-            _attackTimer = 0; // Can attack immediately upon entering combat.
+            _attackTimer = 0; // Can attack immediately.
         }
 
         public override void Update()
         {
-            // --- MOVEMENT LOGIC ---
-            // Always try to move towards the player.
             if (enemy.PlayerTarget != null && enemy.Agent.isOnNavMesh)
             {
                 enemy.Agent.SetDestination(enemy.PlayerTarget.position);
             }
 
-            // --- ATTACK LOGIC ---
             _attackTimer -= Time.deltaTime;
-            // Check if we can attack (cooldown ready AND in range).
             if (_attackTimer <= 0 && enemy.IsPlayerInRadius(enemy.attackRadius))
             {
                 Attack();
@@ -60,10 +68,7 @@ namespace Platformer
             CharacterStats playerStats = enemy.PlayerTarget.GetComponent<CharacterStats>();
             if (playerStats == null) return;
 
-            Debug.Log("--- ENEMY ATTACKING ---");
-
             bool isEmpowered = enemy.MyStats.IsNextAttackEmpowered();
-            // Flash the empowered color for the attack itself.
             enemy.SetStateColor(isEmpowered ? enemy.empoweredAttackColor : enemy.combatColor);
 
             Collider[] hits = Physics.OverlapSphere(enemy.transform.position, enemy.attackRadius, enemy.targetLayerMask);
@@ -73,6 +78,7 @@ namespace Platformer
                 {
                     int damage = CombatCalculator.CalculateDamage(enemy.MyStats, playerStats, isEmpowered);
                     playerStats.TakeDamage(damage, enemy.MyStats);
+                    break; 
                 }
             }
             
@@ -81,7 +87,6 @@ namespace Platformer
 
         public override void OnExit()
         {
-            // When leaving combat, reset the agent's path.
             if (enemy.Agent.isOnNavMesh)
             {
                 enemy.Agent.ResetPath();
@@ -94,6 +99,7 @@ namespace Platformer
         public EnemyReturnState(EnemyAIController enemy) : base(enemy) { } 
         public override void OnEnter() 
         { 
+            enemy.LoseAggro();
             enemy.SetStateColor(enemy.returnColor); 
             if (enemy.Agent.isOnNavMesh) 
             { 

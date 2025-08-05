@@ -1,4 +1,4 @@
-// PlayerAirborneState.cs (v1.4 - Added OnExit velocity reset)
+// PlayerAirborneState.cs (v1.4)
 using UnityEngine;
 
 namespace Platformer
@@ -19,10 +19,9 @@ namespace Platformer
 
         public override void Update()
         {
-            // **THE FIX**: This now calls the instant attack method and does NOT change state.
             if (player.ConsumeAttackPress())
             {
-                player.ExecuteAttack(this);  // Ensure 'this' for return—though not the error, consistency helps.
+                player.ExecuteAttack(this);
             }
         }
 
@@ -32,7 +31,7 @@ namespace Platformer
             if (player.ConsumeJumpBuffer() && player.JumpsRemaining > 0)
             {
                 player.JumpsRemaining--;
-                v.y += player.doubleJumpBoostVelocity;
+                v.y = player.doubleJumpBoostVelocity;
                 player.SetStateColor(player.doubleJumpColor);
                 player.PlayerVelocity = v;
                 player.Controller.Move(new Vector3(0, v.y, 0) * Time.fixedDeltaTime);
@@ -68,8 +67,13 @@ namespace Platformer
 
         public override void OnExit()
         {
+            // **FIX**: Reset y-velocity on exit to a stable grounded value.
+            // **WHY**: This is a critical stability fix. If the player falls off a ledge (without jumping)
+            // and lands, their y-velocity is still a large negative number. Without resetting it, the
+            // CharacterController might not correctly detect the 'IsGrounded' condition on the next frame,
+            // leaving the player stuck in an unresponsive airborne state. This ensures a firm, reliable landing.
             var v = player.PlayerVelocity;
-            v.y = -2f; // FIX: Reset y-velocity on exit to grounded/idle; why? Ensures snap to stable ground state after drop from sky, like a Pokémon landing firmly without lingering fall momentum—fixes stuck airborne without input in MOBA drops.
+            v.y = -2f; 
             player.PlayerVelocity = v;
             player.UpdateGroundedColor();
         }

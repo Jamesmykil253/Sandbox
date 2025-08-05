@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 3307899819908154665}
   - component: {fileID: 7719013448782126416}
   - component: {fileID: 443734538386716869}
+  - component: {fileID: -470896098882407379}
   m_Layer: 9
   m_Name: BoostedProjectile
   m_TagString: Untagged
@@ -123,3 +124,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   speed: 15
   lifetime: 3
+--- !u!114 &-470896098882407379
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3101235335318120392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ea2e88ea625448489b8807e0b731f09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  currentPriority: 1
+  targetingRange: 10
+  enemyLayerMask:
+    serializedVersion: 2
+    m_Bits: 0

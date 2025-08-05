@@ -1,4 +1,4 @@
-// PlayerIdleState.cs (v1.1 - No changes from v1.0)
+// PlayerIdleState.cs (v1.2)
 using UnityEngine;
 
 namespace Platformer
@@ -22,10 +22,19 @@ namespace Platformer
 
         public override void Update()
         {
-            // **THE FIX**: Use the instant attack method and does NOT change state.
+            // **FIX**: Added the check to initiate scoring.
+            // **WHY**: This was the missing piece of logic. The state now constantly checks if the
+            // player is holding the score button AND if they are in a valid position to score.
+            // If both are true, it transitions to the PlayerScoringState.
+            if (player.IsScoreButtonPressed && player.CanStartScoring())
+            {
+                stateMachine.ChangeState(new PlayerScoringState(player, stateMachine, player.GetCurrentGoalZone()));
+                return; // Exit early to prevent other actions this frame.
+            }
+
             if (player.ConsumeAttackPress())
             {
-                player.ExecuteAttack(this);  // FIX: Added 'this' as stateToReturnTo; why? Tells attack to return here (idle) after—prevents state loss, keeping ambushes stealthy without forcing movement.
+                player.ExecuteAttack(this);
             }
             if (player.ConsumeJumpBuffer())
             {

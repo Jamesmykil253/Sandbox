@@ -1,4 +1,4 @@
-// PlayerScoringState.cs (v1.1 - No changes from v1.0)
+// PlayerScoringState.cs (v1.1)
 using UnityEngine;
 
 namespace Platformer
@@ -16,13 +16,16 @@ namespace Platformer
 
         public override void OnEnter()
         {
-            // **THE FIX**: This now correctly uses 'timePerCoin' from the GoalZone
-            // to calculate the total time based on the number of coins.
+            // **FIX**: The scoring time is now calculated dynamically.
+            // **WHY**: This is a core balancing mechanic. Scoring more points should take more time,
+            // creating a risk/reward scenario. This calculation uses the 'timePerCoin' value
+            // from the GoalZone to ensure the timing is configurable per-goal if needed.
             _scoringTimer = player.coinCount * _currentGoalZone.timePerCoin;
             
             Debug.Log($"Starting to score {player.coinCount} coins. This will take {_scoringTimer:F2} seconds.");
             _currentGoalZone.StartScoringVisual();
             
+            // Stop player movement while scoring.
             var v = player.PlayerVelocity;
             v.x = 0;
             v.z = 0;
@@ -40,6 +43,7 @@ namespace Platformer
                 return;
             }
 
+            // If the player moves or releases the score button, cancel the action.
             if (!player.IsScoreButtonPressed || player.MoveInput != Vector2.zero)
             {
                 Debug.Log("Scoring cancelled!");

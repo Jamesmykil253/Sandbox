@@ -1,4 +1,4 @@
-// EnemyAIController.cs (v1.1 - Integrated stealth checks)
+// EnemyAIController.cs (v1.1)
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
@@ -7,42 +7,7 @@ namespace Platformer
 {
     [RequireComponent(typeof(CharacterStats), typeof(NavMeshAgent), typeof(StateMachine))]
     public class EnemyAIController : MonoBehaviour
-        {
-        // ... (All variables are the same) ...
-
-        private bool ShouldChasePlayer()
-        {
-            if (PlayerTarget == null || !canFollowPlayer) return false;
-
-            CharacterStats playerStats = PlayerTarget.GetComponent<CharacterStats>();
-            if (playerStats == null) return false;
-
-            // --- VISIBILITY CHECK ---
-            // If the player is in the grass...
-            if (playerStats.isInGrass)
-            {
-                // ...and I am NOT a neutral enemy, then I cannot see them. Do not chase.
-                if (this.MyStats.team != Team.Neutral)
-                {
-                    // If we were chasing, lose aggro now that they're hidden.
-                    if (IsAggroed) LoseAggro();
-                    return false;
-                }
-                // If I AM a neutral enemy, I can see them. The check continues...
-            }
-
-            // If we are already aggroed and the player is within our leash range.
-            if (IsAggroed && IsPlayerWithinLeash())
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        // ... (The rest of the script is exactly the same) ...
-    
-    
+    {
         [Header("AI Behavior")]
         public bool canFollowPlayer = true;
         public float leashRadius = 15f;
@@ -56,7 +21,7 @@ namespace Platformer
         [Header("Debug Colors")]
         public Material debugMaterial;
         public Color idleColor = Color.gray;
-        public Color combatColor = Color.magenta; // New color for the combined state
+        public Color combatColor = Color.magenta;
         public Color returnColor = new Color(1f, 0.5f, 0f);
         public Color empoweredAttackColor = Color.white;
         
@@ -95,23 +60,52 @@ namespace Platformer
 
         private void SetupStateMachine()
         {
-            // --- NEW, SIMPLIFIED STATE MACHINE ---
+            // **FIX**: A new, simplified state machine using the combined Combat state.
+            // **WHY**: The AI's logic is simple: if it's angry, it moves towards the player and attacks.
+            // If the player runs away or hides, it returns home. This is more efficient and less
+            // prone to bugs than managing separate Chase and Attack states.
             var idleState = new EnemyIdleState(this);
-            var combatState = new EnemyCombatState(this); // The new, combined state
+            var combatState = new EnemyCombatState(this);
             var returnState = new EnemyReturnState(this);
 
-            // When attacked, go into combat.
-            StateMachine.AddTransition(idleState, combatState, new FunkPredicate(() => IsAggroed));
-            
-            // If in combat and the player gets outside the leash, return home.
-            StateMachine.AddTransition(combatState, returnState, new FunkPredicate(() => !IsPlayerWithinLeash()));
-            
-            // If returning and we get close to our start position, go back to idle.
+            StateMachine.AddTransition(idleState, combatState, new FunkPredicate(() => IsAggroed && ShouldChasePlayer()));
+            StateMachine.AddTransition(combatState, returnState, new FunkPredicate(() => !ShouldChasePlayer()));
             StateMachine.AddTransition(returnState, idleState, new FunkPredicate(() => Vector3.Distance(transform.position, StartPosition) < 1f));
 
             StateMachine.SetState(idleState);
         }
         
+        /// <summary>
+        /// **NEW**: The core decision-making logic for the AI.
+        /// </summary>
+        private bool ShouldChasePlayer()
+        {
+            if (PlayerTarget == null || !canFollowPlayer) return false;
+
+            CharacterStats playerStats = PlayerTarget.GetComponent<CharacterStats>();
+            if (playerStats == null) return false;
+
+            // **FIX**: Added stealth detection logic.
+            // **WHY**: This implements the core stealth mechanic. If the player is in grass and not
+            // revealed, most AI will lose sight. The exception for Neutral AI adds a layer of
+            // challenge to farming the "jungle" camps.
+            if (playerStats.isInGrass && !playerStats.isRevealed)
+            {
+                if (this.MyStats.team != Team.Neutral)
+                {
+                    if (IsAggroed) LoseAggro();
+                    return false;
+                }
+            }
+
+            if (IsAggroed && IsPlayerWithinLeash())
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public void AggroOnDamage(Transform attacker)
         {
             if (canFollowPlayer)
@@ -124,7 +118,7 @@ namespace Platformer
         public void LoseAggro() { IsAggroed = false; }
         private void HandleDeath() { StateMachine.enabled = false; Agent.enabled = false; foreach (Collider col in GetComponentsInChildren<Collider>()) { col.enabled = false; } StartCoroutine(DeathSequence()); }
         private IEnumerator DeathSequence() { if (coinPrefab != null) { for (int i = 0; i < coinDropAmount; i++) { Vector3 randomOffset = new Vector3(Random.Range(-0.5f, 0.5f), 0.5f, Random.Range(-0.5f, 0.5f)); Instantiate(coinPrefab, transform.position + randomOffset, Quaternion.identity); } } float fadeDuration = 1.5f; float timer = 0f; Color startColor = debugMaterial.color; while (timer < fadeDuration) { timer += Time.deltaTime; float alpha = Mathf.Lerp(1f, 0f, timer / fadeDuration); debugMaterial.color = new Color(startColor.r, startColor.g, startColor.b, alpha); yield return null; } Destroy(gameObject); }
-        private void UpdateAgentSpeed() { Agent.speed = MyStats.baseStats.Speed; }
+        private void UpdateAgentSpeed() { if(Agent.isOnNavMesh) Agent.speed = MyStats.baseStats.Speed; }
         private void Update() { if (StateMachine.enabled) StateMachine.Tick(); }
         public bool IsPlayerInRadius(float radius) { if (PlayerTarget == null) return false; return Vector3.Distance(transform.position, PlayerTarget.position) <= radius; }
         public bool IsPlayerWithinLeash() { if (PlayerTarget == null) return false; return Vector3.Distance(StartPosition, PlayerTarget.position) <= leashRadius; }

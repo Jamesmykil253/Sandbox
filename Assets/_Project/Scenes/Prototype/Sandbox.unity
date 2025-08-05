@@ -622,7 +622,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 478683802811012350, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.9300003
+      value: -0.24
       objectReference: {fileID: 0}
     - target: {fileID: 593738599395186582, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
@@ -630,7 +630,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 669596060559497586, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
-      value: 3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 691169786837185886, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
@@ -655,6 +655,10 @@ PrefabInstance:
     - target: {fileID: 2160164284572487033, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: team
       value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2160164284572487033, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
+      propertyPath: healingPerSecond
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2216132938061556087, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_IsTrigger
@@ -694,7 +698,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5881556566638607172, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
-      value: 3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6120976158278912539, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
@@ -706,11 +710,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6395755241545425409, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
-      value: 3
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 7048991505390934989, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7711573268273586646, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
-      value: 3
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 8271745274360143161, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Name
@@ -722,7 +730,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8686119320715470446, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_Layer
-      value: 3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8780028890834178190, guid: 437b00c4009b2409f97be24b1aaccae1, type: 3}
       propertyPath: m_LocalPosition.x

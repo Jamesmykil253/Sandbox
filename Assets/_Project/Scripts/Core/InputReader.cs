@@ -1,4 +1,4 @@
-// InputReader.cs (v1.1 - No changes from v1.0)
+// InputReader.cs (v1.2)
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System;
@@ -16,13 +16,18 @@ namespace Platformer
         public event Action CycleCameraEvent;
         public event Action AttackEvent;
         public event Action ScoreEvent;
-        public event Action ScoreCancelledEvent; // **THE FIX**: This was missing.
+        public event Action ScoreCancelledEvent;
 
         private void OnEnable()
         {
             if (_inputActions == null)
             {
                 _inputActions = new InputSystem_Actions();
+                // **FIX**: The SetCallbacks method must be called on the specific Action Map ("Player").
+                // **WHY**: The main _inputActions object is just a container. The actual event
+                // subscriptions live inside the specific map ('Player', 'UI', etc.) that you define
+                // in the Input Actions asset. This line now correctly registers this script to listen
+                // for events from the Player action map.
                 _inputActions.Player.SetCallbacks(this);
             }
             _inputActions.Player.Enable();
@@ -54,7 +59,6 @@ namespace Platformer
             if (context.performed) AttackEvent?.Invoke();
         }
 
-        // **THE FIX**: This method now correctly handles both events.
         public void OnScore(InputAction.CallbackContext context)
         {
             if (context.performed) ScoreEvent?.Invoke();

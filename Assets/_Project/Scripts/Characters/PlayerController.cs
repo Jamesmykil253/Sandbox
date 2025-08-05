@@ -1,12 +1,19 @@
-// PlayerController.cs (v1.6 - Enhanced trigger logging and handling)
+// PlayerController.cs (v1.9)
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement; // FIX: Added this using directive; why? SceneManager.LoadScene and GetActiveScene are in UnityEngine.SceneManagement namespace—without it, the compiler can't find them, like a Pokémon move not registered in the Pokédex, blocking execution and causing build errors.
+using UnityEngine.SceneManagement;
 using System;
 
 namespace Platformer
 {
-    [RequireComponent(typeof(CharacterController), typeof(StateMachine), typeof(CharacterStats))]
+    // **FIX**: The [RequireComponent] attribute must be stacked for each component.
+    // **WHY**: C# attribute syntax does not allow multiple arguments in this context. To tell
+    // Unity that this script requires several other components, we must provide a separate
+    // attribute declaration for each one. This resolves the CS1729 compiler error.
+    [RequireComponent(typeof(CharacterController))]
+    [RequireComponent(typeof(StateMachine))]
+    [RequireComponent(typeof(CharacterStats))]
+    [RequireComponent(typeof(TargetingSystem))]
     public class PlayerController : MonoBehaviour
     {
         [Header("Combat Settings")]
@@ -48,7 +55,7 @@ namespace Platformer
         public LayerMask groundLayer;
         public float initialJumpHeight = 1f;
         public float maxFirstJumpHeight = 1.5f;
-        public float doubleJumpBoostVelocity = 6f;  // FIX: Added/made public if missing— this is the "up force" for double jumps (how high you bounce mid-air). Public lets Airborne state use it for smooth jumps over map bridges or to grab XP from AI without landing clunky. Tweak 6f for feel (higher = bouncier, like Unite's agile Pokémon).
+        public float doubleJumpBoostVelocity = 6f;
         public float jumpHoldDuration = 0.25f;
         public float jumpCutOffMultiplier = 2f;
         public float jumpBufferTime = 0.15f;
@@ -56,6 +63,8 @@ namespace Platformer
         private float _jumpBufferTimer;
         private bool _attackInputPressed;
         private float _attackCooldownTimer;
+        
+        private TargetingSystem _targetingSystem;
 
         public Vector3 PlayerVelocity { get; set; }
         public int JumpsRemaining { get; set; }
@@ -71,6 +80,8 @@ namespace Platformer
             Controller = GetComponent<CharacterController>();
             StateMachine = GetComponent<StateMachine>();
             MyStats = GetComponent<CharacterStats>();
+            _targetingSystem = GetComponent<TargetingSystem>();
+
             var renderer = GetComponentInChildren<Renderer>();
             if (renderer != null) debugMaterial = renderer.material;
             MyStats.OnDied += HandleDeath;
@@ -91,7 +102,7 @@ namespace Platformer
         private void Start()
         {
             SetupStateMachine();
-            UnityEngine.Object.FindObjectOfType<CameraController>()?.SetTarget(this.transform); // FIX: Fully qualified UnityEngine.Object to resolve ambiguity with System.Object (from using System;); why? Compiler confused 'Object' between Unity's class and C#'s keyword alias—like a Pokémon named "Type" clashing with battle types, causing type resolution errors and build failure.
+            FindFirstObjectByType<CameraController>()?.SetTarget(this.transform);
         }
 
         private void OnEnable()
@@ -148,13 +159,30 @@ namespace Platformer
             {
                 MyStats.RevealCharacter(revealDurationOnAttack);
             }
-            _jumpBufferTimer = 0f; // FIX: Clear jump buffer on attack; why? Prevents pending ConsumeJumpBuffer from adding extra y-velocity post-double jump—like interrupting a Pokémon's jump chain with a strike, avoiding unintended "triple" hops and keeping MOBA aerial combat balanced.
+            _jumpBufferTimer = 0f; 
             _attackCooldownTimer = 1f / MyStats.baseStats.AttackSpeed;
+            
             if (MyStats.IsNextAttackEmpowered() && boostedProjectilePrefab != null)
             {
-                var projectile = Instantiate(boostedProjectilePrefab, transform.position + transform.forward, transform.rotation);
+                Transform target = _targetingSystem.FindBestTarget();
+                Quaternion projectileRotation;
+
+                if (target != null)
+                {
+                    Debug.Log($"Found best target: {target.name}");
+                    Vector3 directionToTarget = (target.position - transform.position).normalized;
+                    projectileRotation = Quaternion.LookRotation(directionToTarget);
+                }
+                else
+                {
+                    Debug.Log("No target found, firing forward.");
+                    projectileRotation = transform.rotation;
+                }
+                
+                var projectile = Instantiate(boostedProjectilePrefab, transform.position + transform.forward, projectileRotation);
                 projectile.GetComponent<Projectile>().Initialize(MyStats, MyStats.baseStats.Attack, true, attackLayerMask);
             }
+
             StateMachine.ChangeState(new PlayerAttackState(this, StateMachine, stateToReturnTo));
         }
 
@@ -314,7 +342,7 @@ namespace Platformer
             if (pointsActuallyScored > 0)
             {
                 Debug.Log($"Player scored {pointsActuallyScored} points!");
-                GameManager.Instance.AddScore(this.team, pointsActuallyScored);  // FIX: Used 'team' field for consistency; why? Matches MyStats.team but ensures scoring credits right team.
+                GameManager.Instance.AddScore(this.team, pointsActuallyScored);
                 GrantScoringXp(pointsActuallyScored);
                 coinCount -= pointsActuallyScored;
             }
@@ -341,7 +369,7 @@ namespace Platformer
         {
             if (other.TryGetComponent<GoalZone>(out GoalZone goalZone))
             {
-                if (_currentGoalZone != null) Debug.LogWarning($"Overlapping goal zones? Current: {_currentGoalZone.team}, New: {goalZone.team}"); // FIX: Warning for debug; why? Helps identify if multiple colliders cause skips, like a Pokémon zone overlap confusing entry detection.
+                if (_currentGoalZone != null) Debug.LogWarning($"Overlapping goal zones? Current: {_currentGoalZone.team}, New: {goalZone.team}");
                 Debug.Log($"Entered goal zone for team {goalZone.team}");
                 _currentGoalZone = goalZone;
                 _currentGoalZone.OnPlayerEnter(this);
@@ -354,13 +382,13 @@ namespace Platformer
             {
                 if (_currentGoalZone == goalZone)
                 {
-                    Debug.Log("Exited goal zone.");
+                    Debug.Log("Exited current goal zone.");
                     _currentGoalZone.OnPlayerExit();
                     _currentGoalZone = null;
                 }
                 else
                 {
-                    Debug.LogWarning($"Exited non-current goal zone: {goalZone.team}"); // FIX: Warning for debug; why? Catches mismatches on re-entry, ensuring _currentGoalZone resets properly for consistent scoring in MOBA.
+                    Debug.LogWarning($"Exited non-current goal zone: {goalZone.team}");
                 }
             }
         }

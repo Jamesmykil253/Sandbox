@@ -1,4 +1,4 @@
-// PlayerAttackState.cs (v1.1 - Updated with Lerp smoothing)
+// PlayerAttackState.cs (v1.1)
 using UnityEngine;
 
 namespace Platformer
@@ -7,7 +7,8 @@ namespace Platformer
     {
         private float _attackDuration = 0.5f;
         private float _timer;
-        private float _normalizedTimer;  // FIX: New var for 0-1 progress—used in Lerp for gradual slowdown, like easing a car brake instead of slamming.
+        // **FIX**: New variable to track progress from 0 to 1 for smooth interpolation.
+        private float _normalizedTimer;
         private IState _stateToReturnTo;
 
         public PlayerAttackState(PlayerController player, StateMachine stateMachine, IState stateToReturnTo) : base(player, stateMachine)
@@ -20,15 +21,22 @@ namespace Platformer
             bool isEmpowered = player.MyStats.IsNextAttackEmpowered();
             player.SetStateColor(isEmpowered ? player.empoweredAttackColor : player.attackColor);
             _timer = _attackDuration;
-            _normalizedTimer = 0f;  // Start at 0 for Lerp.
-            FindAndDamageEnemy(isEmpowered);
+            _normalizedTimer = 0f;
+            
+            // The empowered attack is a projectile, so we only do a melee sphere check for non-empowered attacks.
+            if (!isEmpowered)
+            {
+                FindAndDamageEnemy();
+            }
+            
             player.MyStats.PerformBasicAttack();
         }
 
         public override void Update()
         {
             _timer -= Time.deltaTime;
-            _normalizedTimer = 1f - (_timer / _attackDuration);  // FIX: 0 at start, 1 at end—progress for easing.
+            // **FIX**: Calculate the normalized progress of the attack (0 at the start, 1 at the end).
+            _normalizedTimer = 1f - (_timer / _attackDuration);
             if (_timer <= 0f)
             {
                 stateMachine.ChangeState(_stateToReturnTo);
@@ -37,6 +45,7 @@ namespace Platformer
 
         public override void FixedUpdate()
         {
+            // Use different movement logic depending on if the attack started in the air or on the ground.
             if (_stateToReturnTo is PlayerAirborneState)
             {
                 ApplyAirborneMovement();
@@ -50,7 +59,10 @@ namespace Platformer
         private void ApplyGroundedMovement()
         {
             Vector3 moveDirection = new Vector3(player.MoveInput.x, 0, player.MoveInput.y);
-            float currentMultiplier = Mathf.Lerp(1f, player.attackMoveSpeedMultiplier, _normalizedTimer);  // FIX: Lerp from full speed (1f) to half—gradual slowdown over duration, like Unite's smooth attack motion (feels natural, not jerky).
+            // **FIX**: Use Lerp to smoothly transition from full speed (1f) to the reduced attack speed.
+            // **WHY**: This prevents a jarring, instant change in speed. The movement now eases into
+            // the slowdown, making the attack animation feel more fluid and polished.
+            float currentMultiplier = Mathf.Lerp(1f, player.attackMoveSpeedMultiplier, _normalizedTimer);
             Vector3 movement = moveDirection * player.MyStats.baseStats.Speed * currentMultiplier;
             movement.y = player.PlayerVelocity.y;
             player.Controller.Move(movement * Time.fixedDeltaTime);
@@ -66,15 +78,16 @@ namespace Platformer
             var v = player.PlayerVelocity;
             v.y += player.gravity * Time.fixedDeltaTime;
             player.PlayerVelocity = v;
-            float currentMultiplier = Mathf.Lerp(1f, player.attackMoveSpeedMultiplier, _normalizedTimer);  // FIX: Same Lerp for air—eases speed during jump attacks, preventing "frozen" feel while mid-air battling AI for XP.
+            // **FIX**: Apply the same smoothing logic to airborne attacks for consistency.
+            float currentMultiplier = Mathf.Lerp(1f, player.attackMoveSpeedMultiplier, _normalizedTimer);
             Vector3 move = new Vector3(player.MoveInput.x, 0, player.MoveInput.y) * player.MyStats.baseStats.Speed * currentMultiplier;
             move.y = v.y;
             player.Controller.Move(move * Time.fixedDeltaTime);
         }
 
-        private void FindAndDamageEnemy(bool isEmpowered)
+        private void FindAndDamageEnemy()
         {
-            Collider[] hits = Physics.OverlapSphere(player.transform.position, player.meleeAttackRadius);
+            Collider[] hits = Physics.OverlapSphere(player.transform.position, player.meleeAttackRadius, player.attackLayerMask);
             EnemyAIController closestEnemy = null;
             float closestDist = float.MaxValue;
             foreach (var hit in hits)
@@ -91,7 +104,7 @@ namespace Platformer
             }
             if (closestEnemy != null)
             {
-                int damage = CombatCalculator.CalculateDamage(player.MyStats, closestEnemy.MyStats, isEmpowered);
+                int damage = CombatCalculator.CalculateDamage(player.MyStats, closestEnemy.MyStats, false);
                 closestEnemy.MyStats.TakeDamage(damage, player.MyStats);
             }
         }

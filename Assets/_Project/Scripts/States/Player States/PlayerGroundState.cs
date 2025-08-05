@@ -1,4 +1,4 @@
-// PlayerGroundedState.cs (v1.1 - No changes from v1.0)
+// PlayerGroundedState.cs (v1.2)
 using UnityEngine;
 
 namespace Platformer
@@ -19,7 +19,16 @@ namespace Platformer
 
         public override void Update()
         {
-            // **THE FIX**: This now calls the instant attack method and does NOT change state.
+            // **FIX**: Added the same check here for consistency.
+            // **WHY**: The player could be moving slightly and still want to score. Adding this check
+            // to the Grounded state ensures that scoring can be initiated as long as the player
+            // is on the ground, not just when perfectly still.
+            if (player.IsScoreButtonPressed && player.CanStartScoring())
+            {
+                stateMachine.ChangeState(new PlayerScoringState(player, stateMachine, player.GetCurrentGoalZone()));
+                return; // Exit early.
+            }
+
             if (player.ConsumeAttackPress()) 
             {
                 player.ExecuteAttack(this);
